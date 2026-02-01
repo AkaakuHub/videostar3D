@@ -54,7 +54,9 @@ namespace OsuTools
 
         private IEnumerator DownloadAndAnalyzeCoroutine(int setId, string difficultyVersion)
         {
-            Debug.Log($"[OsuSearchManager] DownloadAndAnalyzeCoroutine started for set ID: {setId}");
+            Debug.Log(
+                $"[OsuSearchManager] DownloadAndAnalyzeCoroutine started for set ID: {setId}"
+            );
 
             // Download the .osz file
             byte[] oszData = null;
@@ -130,14 +132,20 @@ namespace OsuTools
             // Analyze the .osu file
             var osuText = System.IO.File.ReadAllText(osuFilePath);
             var result = OsuAnalyzer.AnalyzeFromText(osuText);
-            Debug.Log($"[OsuSearchManager] Analysis complete! BPM sections: {result.BpmSections.Count}, Kiai intervals: {result.KiaiIntervals.Count}");
+            Debug.Log(
+                $"[OsuSearchManager] Analysis complete! BPM sections: {result.BpmSections.Count}, Kiai intervals: {result.KiaiIntervals.Count}"
+            );
             OnAnalysisComplete?.Invoke(result);
 
             // Extract and load audio clip
             var audioFilename = OsuAnalyzer.GetAudioFilename(osuText);
             if (!string.IsNullOrEmpty(audioFilename))
             {
-                var audioPath = OsuFileExtractor.ExtractFileByName(oszData, audioFilename, outputDir);
+                var audioPath = OsuFileExtractor.ExtractFileByName(
+                    oszData,
+                    audioFilename,
+                    outputDir
+                );
                 if (!string.IsNullOrEmpty(audioPath))
                 {
                     CurrentAudioPath = audioPath;

@@ -28,7 +28,8 @@ namespace OsuTools.Api
         )
         {
             var query = UnityWebRequest.EscapeURL(request.query ?? "");
-            var url = $"{SearchBaseUrl}?query={query}&amount={request.amount}&offset={request.offset}";
+            var url =
+                $"{SearchBaseUrl}?query={query}&amount={request.amount}&offset={request.offset}";
 
             using (var webRequest = UnityWebRequest.Get(url))
             {
@@ -46,7 +47,11 @@ namespace OsuTools.Api
                         // osu.direct returns a JSON array directly, so wrap it for JsonUtility
                         var wrappedJson = $"{{\"results\":{processedJson}}}";
                         var results = JsonUtility.FromJson<OsuSearchResultWrapper>(wrappedJson);
-                        onSuccess?.Invoke(results != null && results.results != null ? results.results : new OsuSearchResult[0]);
+                        onSuccess?.Invoke(
+                            results != null && results.results != null
+                                ? results.results
+                                : new OsuSearchResult[0]
+                        );
                     }
                     catch (Exception ex)
                     {
@@ -55,7 +60,9 @@ namespace OsuTools.Api
                 }
                 else
                 {
-                    onError?.Invoke($"Search failed: {webRequest.error} (HTTP {webRequest.responseCode})");
+                    onError?.Invoke(
+                        $"Search failed: {webRequest.error} (HTTP {webRequest.responseCode})"
+                    );
                 }
             }
         }
@@ -95,7 +102,9 @@ namespace OsuTools.Api
                     // Log progress every 10%
                     if (currentProgress - lastProgress >= 0.1f || currentProgress >= 1.0f)
                     {
-                        Debug.Log($"[OsuDirectApiClient] Download progress: {currentProgress * 100:F1}%");
+                        Debug.Log(
+                            $"[OsuDirectApiClient] Download progress: {currentProgress * 100:F1}%"
+                        );
                         lastProgress = currentProgress;
                     }
                     onProgress?.Invoke(currentProgress);
@@ -109,11 +118,14 @@ namespace OsuTools.Api
                 {
                     var data = webRequest.downloadHandler.data;
                     onSuccess?.Invoke(data);
-                    Debug.Log($"[OsuDirectApiClient] Successfully downloaded beatmap set {setId}, size: {data?.Length ?? 0} bytes");
+                    Debug.Log(
+                        $"[OsuDirectApiClient] Successfully downloaded beatmap set {setId}, size: {data?.Length ?? 0} bytes"
+                    );
                 }
                 else
                 {
-                    var errorMsg = $"Download failed: {webRequest.error} (HTTP {webRequest.responseCode})";
+                    var errorMsg =
+                        $"Download failed: {webRequest.error} (HTTP {webRequest.responseCode})";
                     Debug.LogError($"[OsuDirectApiClient] {errorMsg}");
                     onError?.Invoke(errorMsg);
                 }
@@ -159,7 +171,9 @@ namespace OsuTools.Api
                 }
                 else
                 {
-                    onError?.Invoke($"Download failed: {webRequest.error} (HTTP {webRequest.responseCode})");
+                    onError?.Invoke(
+                        $"Download failed: {webRequest.error} (HTTP {webRequest.responseCode})"
+                    );
                 }
             }
         }

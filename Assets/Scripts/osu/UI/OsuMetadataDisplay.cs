@@ -2,9 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 namespace OsuTools.UI
 {
@@ -144,7 +144,8 @@ namespace OsuTools.UI
                 ? OsuAnalyzer.MsToTimeString(currentResult.LastHitObjectTimeMs.Value)
                 : "Unknown";
 
-            statsText.text = $"Length: {length} | BPM Sections: {currentResult.BpmSections.Count} | Kiai Intervals: {currentResult.KiaiIntervals.Count}";
+            statsText.text =
+                $"Length: {length} | BPM Sections: {currentResult.BpmSections.Count} | Kiai Intervals: {currentResult.KiaiIntervals.Count}";
         }
 
         private void UpdateBpmSectionsText()
@@ -161,7 +162,9 @@ namespace OsuTools.UI
                 var endStr = sec.EndMs.HasValue
                     ? OsuAnalyzer.MsToTimeString(sec.EndMs.Value)
                     : "end";
-                lines.Add($"{i + 1}. {OsuAnalyzer.MsToTimeString(sec.StartMs)} - {endStr} | {sec.Bpm:F2} BPM");
+                lines.Add(
+                    $"{i + 1}. {OsuAnalyzer.MsToTimeString(sec.StartMs)} - {endStr} | {sec.Bpm:F2} BPM"
+                );
             }
             bpmSectionsText.text = string.Join("\n", lines);
         }
@@ -178,7 +181,9 @@ namespace OsuTools.UI
             {
                 var iv = currentResult.KiaiIntervals[i];
                 var end = iv.EndMs.HasValue ? iv.EndMs.Value : -1;
-                lines.Add($"{i + 1}. {OsuAnalyzer.MsToTimeString(iv.StartMs)} - {(end >= 0 ? OsuAnalyzer.MsToTimeString(end) : "end")}");
+                lines.Add(
+                    $"{i + 1}. {OsuAnalyzer.MsToTimeString(iv.StartMs)} - {(end >= 0 ? OsuAnalyzer.MsToTimeString(end) : "end")}"
+                );
             }
             kiaiIntervalsText.text = string.Join("\n", lines);
         }
@@ -204,7 +209,11 @@ namespace OsuTools.UI
 
         private void DrawBpmTimeline()
         {
-            if (bpmTimelineImage == null || currentResult == null || currentResult.BpmSections.Count == 0)
+            if (
+                bpmTimelineImage == null
+                || currentResult == null
+                || currentResult.BpmSections.Count == 0
+            )
             {
                 return;
             }
@@ -219,7 +228,9 @@ namespace OsuTools.UI
             }
 
             // Calculate total length
-            int totalMs = currentResult.BpmSections.Max(sec => sec.EndMs ?? currentResult.LastHitObjectTimeMs ?? 0);
+            int totalMs = currentResult.BpmSections.Max(sec =>
+                sec.EndMs ?? currentResult.LastHitObjectTimeMs ?? 0
+            );
             if (totalMs <= 0)
             {
                 totalMs = currentResult.LastHitObjectTimeMs ?? 0;
@@ -272,7 +283,11 @@ namespace OsuTools.UI
 
         private void DrawKiaiTimeline()
         {
-            if (kiaiTimelineImage == null || currentResult == null || currentResult.KiaiIntervals.Count == 0)
+            if (
+                kiaiTimelineImage == null
+                || currentResult == null
+                || currentResult.KiaiIntervals.Count == 0
+            )
             {
                 return;
             }

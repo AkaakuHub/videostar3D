@@ -59,7 +59,7 @@ namespace OsuTools
         public class Covers
         {
             public string cover;
-            public string cover_2x;  // JSON uses "cover@2x" but @ is not valid in C# identifiers
+            public string cover_2x; // JSON uses "cover@2x" but @ is not valid in C# identifiers
             public string card;
             public string card_2x;
             public string list;

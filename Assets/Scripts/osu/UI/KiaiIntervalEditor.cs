@@ -282,7 +282,12 @@ namespace OsuTools.UI
 
         private GameObject CreatePanel(string name, float height)
         {
-            var panel = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            var panel = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image)
+            );
             panel.transform.SetParent(transform, false);
             var rect = panel.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0f, 0f);
@@ -299,7 +304,13 @@ namespace OsuTools.UI
 
         private Button CreateButton(Transform parent, string name, string label)
         {
-            var buttonObj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            var buttonObj = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Button)
+            );
             buttonObj.transform.SetParent(parent, false);
             var image = buttonObj.GetComponent<Image>();
             image.color = new Color(0.2f, 0.6f, 1f, 0.85f);
@@ -391,7 +402,12 @@ namespace OsuTools.UI
 
         private RectTransform CreateTimelineImage(string name, Color color)
         {
-            var obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            var obj = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image)
+            );
             obj.transform.SetParent(kiaiTimelineImage.transform, false);
             var rect = obj.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0f, 0f);
@@ -405,9 +421,18 @@ namespace OsuTools.UI
             return rect;
         }
 
-        private RectTransform CreateHandle(string name, float width = 6f, Color? colorOverride = null)
+        private RectTransform CreateHandle(
+            string name,
+            float width = 6f,
+            Color? colorOverride = null
+        )
         {
-            var obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            var obj = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image)
+            );
             obj.transform.SetParent(kiaiTimelineImage.transform, false);
             var rect = obj.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0f, 0.5f);
@@ -599,7 +624,8 @@ namespace OsuTools.UI
                 end = interval.StartMs;
             }
 
-            selectionLabel.text = $"Kiai {selectedIndex + 1}/{intervals.Count}: {OsuAnalyzer.MsToTimeString(interval.StartMs)} - {OsuAnalyzer.MsToTimeString(end)}";
+            selectionLabel.text =
+                $"Kiai {selectedIndex + 1}/{intervals.Count}: {OsuAnalyzer.MsToTimeString(interval.StartMs)} - {OsuAnalyzer.MsToTimeString(end)}";
 
             if (prevButton != null)
             {
@@ -675,7 +701,10 @@ namespace OsuTools.UI
             {
                 var startSeconds = startMs / 1000f;
                 var endSeconds = endMs / 1000f;
-                if (audioSource.time < startSeconds || audioSource.time >= endSeconds - RestartThresholdSeconds)
+                if (
+                    audioSource.time < startSeconds
+                    || audioSource.time >= endSeconds - RestartThresholdSeconds
+                )
                 {
                     audioSource.time = startSeconds;
                 }
@@ -802,11 +831,14 @@ namespace OsuTools.UI
                 return;
             }
 
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            if (
+                !RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     kiaiTimelineImage.rectTransform,
                     eventData.position,
                     eventData.pressEventCamera,
-                    out var localPoint))
+                    out var localPoint
+                )
+            )
             {
                 return;
             }
@@ -847,11 +879,14 @@ namespace OsuTools.UI
                 return;
             }
 
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            if (
+                !RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     kiaiTimelineImage.rectTransform,
                     eventData.position,
                     eventData.pressEventCamera,
-                    out var localPoint))
+                    out var localPoint
+                )
+            )
             {
                 return;
             }

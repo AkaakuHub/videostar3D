@@ -40,7 +40,10 @@ namespace OsuTools
                     {
                         if (entry.FullName.EndsWith(".osu", StringComparison.OrdinalIgnoreCase))
                         {
-                            var destinationPath = Path.Combine(outputDir, Path.GetFileName(entry.FullName));
+                            var destinationPath = Path.Combine(
+                                outputDir,
+                                Path.GetFileName(entry.FullName)
+                            );
                             entry.ExtractToFile(destinationPath, overwrite: true);
                             extractedFiles.Add(destinationPath);
                         }
@@ -66,7 +69,11 @@ namespace OsuTools
         /// <param name="difficultyVersion">The difficulty version name to search for</param>
         /// <param name="outputDir">Directory to extract files to</param>
         /// <returns>Path to the extracted .osu file, or null if not found</returns>
-        public static string ExtractOsuFileByDifficulty(byte[] oszData, string difficultyVersion, string outputDir)
+        public static string ExtractOsuFileByDifficulty(
+            byte[] oszData,
+            string difficultyVersion,
+            string outputDir
+        )
         {
             if (!Directory.Exists(outputDir))
             {
@@ -93,7 +100,10 @@ namespace OsuTools
                                 var content = reader.ReadToEnd();
                                 if (content.Contains($"Version:{difficultyVersion}"))
                                 {
-                                    var destinationPath = Path.Combine(outputDir, Path.GetFileName(entry.FullName));
+                                    var destinationPath = Path.Combine(
+                                        outputDir,
+                                        Path.GetFileName(entry.FullName)
+                                    );
                                     entry.ExtractToFile(destinationPath, overwrite: true);
                                     foundPath = destinationPath;
                                     break;
@@ -123,7 +133,10 @@ namespace OsuTools
         public static string[] ListOsuFiles(byte[] oszData)
         {
             var osuFiles = new System.Collections.Generic.List<string>();
-            var tempPath = Path.Combine(Application.temporaryCachePath, $"temp_{Guid.NewGuid():N}.osz");
+            var tempPath = Path.Combine(
+                Application.temporaryCachePath,
+                $"temp_{Guid.NewGuid():N}.osz"
+            );
 
             try
             {
@@ -158,7 +171,10 @@ namespace OsuTools
         /// <returns>The .osu file content as text, or null if not found</returns>
         public static string ExtractOsuFileContent(byte[] oszData, string difficultyVersion)
         {
-            var tempPath = Path.Combine(Application.temporaryCachePath, $"temp_{Guid.NewGuid():N}.osz");
+            var tempPath = Path.Combine(
+                Application.temporaryCachePath,
+                $"temp_{Guid.NewGuid():N}.osz"
+            );
             string contentResult = null;
 
             try
