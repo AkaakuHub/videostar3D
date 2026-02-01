@@ -11,7 +11,7 @@ namespace OsuTools.UI
 {
     /// <summary>
     /// UI component for searching and displaying osu! beatmap results.
-    /// Completely rewritten with proper VerticalLayoutGroup approach.
+    /// Supports pagination and proper list display.
     /// </summary>
     public class OsuSearchUI : MonoBehaviour
     {
@@ -34,6 +34,16 @@ namespace OsuTools.UI
         [SerializeField]
         private GameObject loadingIndicator;
 
+        [Header("Pagination Buttons")]
+        [SerializeField]
+        private Button previousButton;
+
+        [SerializeField]
+        private Button nextButton;
+
+        [SerializeField]
+        private TextMeshProUGUI pageInfoText;
+
         [Header("Manager")]
         [SerializeField]
         private OsuSearchManager searchManager;
@@ -45,10 +55,23 @@ namespace OsuTools.UI
         [SerializeField]
         private float cardHeight = 130f;
 
+        [Header("Text")]
         [SerializeField]
-        private float cardSpacing = 10f;
+        private TMP_FontAsset resultsFont;
+
+        [Header("Prefabs")]
+        [SerializeField]
+        private GameObject downloadButtonPrefab;
+
+        [Header("Pagination Settings")]
+        [SerializeField]
+        private int resultsPerPage = 20;
 
         private readonly List<GameObject> currentCards = new List<GameObject>();
+        private OsuSearchResult[] currentResults;
+        private int currentPage = 0;
+        private int totalResults = 0;
+        private string currentQuery = string.Empty;
 
         private void Awake()
         {
@@ -73,6 +96,16 @@ namespace OsuTools.UI
                 searchInputField.onSubmit.AddListener(_ => OnSearchButtonClicked());
             }
 
+            if (previousButton != null)
+            {
+                previousButton.onClick.AddListener(OnPreviousButtonClicked);
+            }
+
+            if (nextButton != null)
+            {
+                nextButton.onClick.AddListener(OnNextButtonClicked);
+            }
+
             searchManager.OnSearchComplete += HandleSearchComplete;
             searchManager.OnSearchError += HandleSearchError;
 
@@ -84,7 +117,17 @@ namespace OsuTools.UI
             if (statusText != null)
             {
                 statusText.text = "Enter a search term to find beatmaps";
+                ApplyFont(statusText);
             }
+
+            if (resultsFont == null)
+            {
+                resultsFont = statusText?.font
+                              ?? pageInfoText?.font
+                              ?? searchInputField?.textComponent?.font;
+            }
+
+            UpdatePaginationUI();
         }
 
         private void OnDestroy()
@@ -92,6 +135,16 @@ namespace OsuTools.UI
             if (searchButton != null)
             {
                 searchButton.onClick.RemoveListener(OnSearchButtonClicked);
+            }
+
+            if (previousButton != null)
+            {
+                previousButton.onClick.RemoveListener(OnPreviousButtonClicked);
+            }
+
+            if (nextButton != null)
+            {
+                nextButton.onClick.RemoveListener(OnNextButtonClicked);
             }
 
             if (searchManager != null)
@@ -109,8 +162,9 @@ namespace OsuTools.UI
                 return;
             }
 
-            var query = searchInputField.text.Trim();
-            SetStatus($"Searching for: {query}...");
+            currentQuery = searchInputField.text.Trim();
+            currentPage = 0;
+            SetStatus($"Searching for: {currentQuery}...");
             ClearResults();
 
             if (searchButton != null)
@@ -123,13 +177,51 @@ namespace OsuTools.UI
                 loadingIndicator.SetActive(true);
             }
 
-            Debug.Log($"[OsuSearchUI] Searching for: {query}");
-            searchManager.SearchBeatmaps(query, amount: 20);
+            Debug.Log($"[OsuSearchUI] Searching for: {currentQuery} (page {currentPage})");
+            searchManager.SearchBeatmaps(currentQuery, amount: resultsPerPage, offset: currentPage * resultsPerPage);
+        }
+
+        private void OnPreviousButtonClicked()
+        {
+            if (currentPage > 0)
+            {
+                currentPage--;
+                LoadCurrentPage();
+            }
+        }
+
+        private void OnNextButtonClicked()
+        {
+            // Check if there are more results
+            if ((currentPage + 1) * resultsPerPage < totalResults || currentResults?.Length == resultsPerPage)
+            {
+                currentPage++;
+                LoadCurrentPage();
+            }
+        }
+
+        private void LoadCurrentPage()
+        {
+            SetStatus($"Loading page {currentPage + 1}...");
+            ClearResults();
+
+            if (searchButton != null)
+            {
+                searchButton.interactable = false;
+            }
+
+            if (loadingIndicator != null)
+            {
+                loadingIndicator.SetActive(true);
+            }
+
+            Debug.Log($"[OsuSearchUI] Loading page {currentPage} for: {currentQuery}");
+            searchManager.SearchBeatmaps(currentQuery, amount: resultsPerPage, offset: currentPage * resultsPerPage);
         }
 
         private void HandleSearchComplete(OsuSearchResult[] results)
         {
-            Debug.Log($"[OsuSearchUI] Search complete! Found {results?.Length ?? 0} results");
+            Debug.Log($"[OsuSearchUI] Search complete! Found {results?.Length ?? 0} results on page {currentPage}");
 
             if (searchButton != null)
             {
@@ -144,11 +236,16 @@ namespace OsuTools.UI
             if (results == null || results.Length == 0)
             {
                 SetStatus("No results found.");
+                currentResults = new OsuSearchResult[0];
+                UpdatePaginationUI();
                 return;
             }
 
-            SetStatus($"Found {results.Length} beatmap(s).");
+            currentResults = results;
+            totalResults += results.Length; // Approximate total
+            SetStatus($"Found {results.Length} beatmap(s) on page {currentPage + 1}.");
             DisplayResults(results);
+            UpdatePaginationUI();
         }
 
         private void HandleSearchError(string error)
@@ -168,6 +265,27 @@ namespace OsuTools.UI
             SetStatus($"Error: {error}");
         }
 
+        private void UpdatePaginationUI()
+        {
+            if (previousButton != null)
+            {
+                previousButton.interactable = currentPage > 0;
+            }
+
+            if (nextButton != null)
+            {
+                // Enable next button if we got a full page of results
+                bool hasNextPage = currentResults != null && currentResults.Length == resultsPerPage;
+                nextButton.interactable = hasNextPage;
+            }
+
+            if (pageInfoText != null)
+            {
+                pageInfoText.text = currentPage > 0 ? $"Page {currentPage + 1}" : "Page 1";
+                ApplyFont(pageInfoText);
+            }
+        }
+
         private void DisplayResults(OsuSearchResult[] results)
         {
             Debug.Log($"[OsuSearchUI] Displaying {results.Length} results");
@@ -177,160 +295,120 @@ namespace OsuTools.UI
             {
                 var card = CreateResultCard(result, resultsContainer);
                 currentCards.Add(card);
+                // Force layout rebuild after each card
+                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(card.GetComponent<RectTransform>());
+            }
+
+            // Force final layout rebuild
+            if (resultsContainer != null)
+            {
+                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(resultsContainer as RectTransform);
             }
 
             Debug.Log($"[OsuSearchUI] Created {currentCards.Count} cards");
+
+            // Reset scroll position to top
+            if (resultsScrollRect != null)
+            {
+                resultsScrollRect.verticalNormalizedPosition = 1f;
+            }
         }
 
         /// <summary>
-        /// Creates a result card with a completely new layout approach.
-        /// Uses simple HorizontalLayoutGroup with proper LayoutElements.
+        /// Creates a result card with proper layout for list display.
         /// </summary>
         private GameObject CreateResultCard(OsuSearchResult result, Transform parent)
         {
-            // 1. Card container
+            // Card container
             var cardObj = new GameObject($"ResultCard_{result.id}");
             var cardRect = cardObj.AddComponent<RectTransform>();
             cardObj.transform.SetParent(parent, worldPositionStays: false);
 
             // Set card to full width with fixed height
+            // VerticalLayoutGroup will override anchoredPosition
             cardRect.anchorMin = new Vector2(0, 1);
             cardRect.anchorMax = new Vector2(1, 1);
             cardRect.pivot = new Vector2(0.5f, 1);
-            cardRect.anchoredPosition = Vector2.zero;
+            cardRect.anchoredPosition = new Vector2(0, 0); // Start at 0, VerticalLayoutGroup will adjust
             cardRect.sizeDelta = new Vector2(0, cardHeight);
 
             // Background
             var cardImage = cardObj.AddComponent<Image>();
             cardImage.color = cardBackgroundColor;
 
-            // LayoutElement for parent VerticalLayoutGroup
-            var cardLayout = cardObj.AddComponent<LayoutElement>();
-            cardLayout.preferredHeight = cardHeight;
-            cardLayout.minHeight = cardHeight;
-            cardLayout.flexibleWidth = 1f;
+            // LayoutElement for VerticalLayoutGroup
+            var layoutElement = cardObj.AddComponent<LayoutElement>();
+            layoutElement.preferredHeight = cardHeight;
+            layoutElement.minHeight = cardHeight;
+            layoutElement.flexibleWidth = 1f;
 
-            // 2. Main Horizontal Layout Container (stretched to fill card)
-            var hLayoutObj = new GameObject("HorizontalLayout");
-            var hLayoutRect = hLayoutObj.AddComponent<RectTransform>();
-            hLayoutObj.transform.SetParent(cardObj.transform, worldPositionStays: false);
+            // Content container with padding
+            var contentObj = new GameObject("CardContent");
+            var contentRect = contentObj.AddComponent<RectTransform>();
+            contentObj.transform.SetParent(cardObj.transform, worldPositionStays: false);
 
-            // Stretch to fill card with padding
-            hLayoutRect.anchorMin = Vector2.zero;
-            hLayoutRect.anchorMax = Vector2.one;
-            hLayoutRect.offsetMin = new Vector2(8f, 8f); // left, bottom padding
-            hLayoutRect.offsetMax = new Vector2(-8f, -8f); // right, top padding
+            contentRect.anchorMin = Vector2.zero;
+            contentRect.anchorMax = Vector2.one;
+            contentRect.offsetMin = new Vector2(10, 10);
+            contentRect.offsetMax = new Vector2(-10, -10);
 
-            // Horizontal Layout Group
-            var hLayout = hLayoutObj.AddComponent<HorizontalLayoutGroup>();
+            // Horizontal layout for content (Cover | Info + Button)
+            var hLayout = contentObj.AddComponent<HorizontalLayoutGroup>();
             hLayout.padding = new RectOffset(0, 0, 0, 0);
             hLayout.spacing = 10f;
             hLayout.childAlignment = TextAnchor.MiddleLeft;
-            hLayout.childControlWidth = false;
-            hLayout.childControlHeight = false;
-            hLayout.childForceExpandWidth = false;
+            hLayout.childControlWidth = true;
+            hLayout.childControlHeight = true;
+            hLayout.childForceExpandWidth = true;
             hLayout.childForceExpandHeight = false;
 
-            // 3. Cover Image (fixed size)
-            var coverObj = CreateCoverImage(hLayoutObj.transform, result);
-            var coverLayout = coverObj.GetComponent<LayoutElement>();
-            if (coverLayout == null)
-            {
-                coverLayout = coverObj.AddComponent<LayoutElement>();
-            }
+            // Cover Image (left side)
+            var coverObj = CreateCoverImage(contentObj.transform, result);
+            var coverLayout = coverObj.AddComponent<LayoutElement>();
             coverLayout.preferredWidth = 90f;
             coverLayout.preferredHeight = 90f;
             coverLayout.minWidth = 90f;
             coverLayout.minHeight = 90f;
+            coverLayout.flexibleWidth = 0f;
 
-            // 4. Right Content Container (flexible width, contains info text and button)
-            var rightContentObj = new GameObject("RightContent");
-            var rightContentRect = rightContentObj.AddComponent<RectTransform>();
-            rightContentObj.transform.SetParent(hLayoutObj.transform, worldPositionStays: false);
+            // Right side container (Info + Button)
+            var rightContainerObj = new GameObject("RightContainer");
+            var rightContainerRect = rightContainerObj.AddComponent<RectTransform>();
+            rightContainerObj.transform.SetParent(contentObj.transform, worldPositionStays: false);
+            rightContainerRect.anchorMin = Vector2.zero;
+            rightContainerRect.anchorMax = Vector2.one;
+            rightContainerRect.sizeDelta = Vector2.zero;
 
-            // Right content uses VerticalLayoutGroup
-            var rightVLayout = rightContentObj.AddComponent<VerticalLayoutGroup>();
+            // Vertical layout for right side
+            var rightVLayout = rightContainerObj.AddComponent<VerticalLayoutGroup>();
             rightVLayout.padding = new RectOffset(0, 0, 0, 0);
             rightVLayout.spacing = 6f;
             rightVLayout.childAlignment = TextAnchor.UpperLeft;
             rightVLayout.childControlWidth = true;
-            rightVLayout.childControlHeight = false;
+            rightVLayout.childControlHeight = true;
             rightVLayout.childForceExpandWidth = true;
             rightVLayout.childForceExpandHeight = false;
 
-            var rightLayoutElement = rightContentObj.AddComponent<LayoutElement>();
-            rightLayoutElement.flexibleWidth = 1f;
-            rightLayoutElement.preferredHeight = 90f;
+            var rightLayout = rightContainerObj.AddComponent<LayoutElement>();
+            rightLayout.flexibleWidth = 1f;
+            rightLayout.preferredHeight = 90f;
 
-            // 5. Info Text Area (with VerticalLayoutGroup for proper stacking)
-            var infoAreaObj = new GameObject("InfoArea");
-            var infoAreaRect = infoAreaObj.AddComponent<RectTransform>();
-            infoAreaObj.transform.SetParent(rightContentObj.transform, worldPositionStays: false);
+            // Info text container
+            var infoObj = CreateInfoText(rightContainerObj.transform, result);
+            var infoLayout = infoObj.AddComponent<LayoutElement>();
+            infoLayout.flexibleWidth = 1f;
+            infoLayout.preferredHeight = 75f;
 
-            // Vertical layout for text lines
-            var infoVLayout = infoAreaObj.AddComponent<VerticalLayoutGroup>();
-            infoVLayout.padding = new RectOffset(0, 0, 0, 0);
-            infoVLayout.spacing = 2f;
-            infoVLayout.childAlignment = TextAnchor.UpperLeft;
-            infoVLayout.childControlWidth = true;
-            infoVLayout.childControlHeight = false;
-            infoVLayout.childForceExpandWidth = true;
-            infoVLayout.childForceExpandHeight = false;
-
-            var infoLayoutElement = infoAreaObj.AddComponent<LayoutElement>();
-            infoLayoutElement.flexibleWidth = 1f;
-            infoLayoutElement.preferredHeight = 75f;
-
-            // Create each text line as a separate child
-            CreateTextLine(infoAreaObj.transform, result.title, 15, FontStyles.Bold, Color.white, 20f);
-            CreateTextLine(infoAreaObj.transform, result.artist, 13, FontStyles.Normal, new Color(0.75f, 0.75f, 0.75f), 18f);
-            CreateTextLine(infoAreaObj.transform, $"Mapped by {result.creator}", 11, FontStyles.Normal, new Color(0.5f, 0.5f, 0.5f), 16f);
-            CreateTextLine(infoAreaObj.transform, $"BPM: {result.bpm:F1}", 11, FontStyles.Normal, new Color(0.5f, 0.8f, 1f), 16f);
-
-            // 6. Download Button
-            var buttonObj = CreateDownloadButton(rightContentObj.transform, result);
-            var buttonLayout = buttonObj.GetComponent<LayoutElement>();
-            if (buttonLayout == null)
+            // Download button
+            var buttonObj = CreateDownloadButton(rightContainerObj.transform, result);
+            if (buttonObj != null)
             {
-                buttonLayout = buttonObj.AddComponent<LayoutElement>();
+                var buttonLayout = buttonObj.GetComponent<LayoutElement>() ?? buttonObj.AddComponent<LayoutElement>();
+                buttonLayout.preferredHeight = 32f;
+                buttonLayout.minHeight = 32f;
             }
-            buttonLayout.preferredHeight = 32f;
-            buttonLayout.minHeight = 32f;
 
             return cardObj;
-        }
-
-        /// <summary>
-        /// Creates a single text line with proper layout.
-        /// </summary>
-        private void CreateTextLine(Transform parent, string text, int fontSize, FontStyles fontStyle, Color color, float preferredHeight)
-        {
-            var textObj = new GameObject("TextLine");
-            textObj.transform.SetParent(parent, worldPositionStays: false);
-
-            var rect = textObj.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0, 1);
-            rect.anchorMax = new Vector2(1, 1);
-            rect.pivot = new Vector2(0.5f, 1);
-            rect.anchoredPosition = Vector2.zero;
-            rect.sizeDelta = new Vector2(0, preferredHeight);
-
-            var tmp = textObj.AddComponent<TextMeshProUGUI>();
-            tmp.text = text;
-            tmp.fontSize = fontSize;
-            tmp.fontSizeMax = fontSize;
-            tmp.fontSizeMin = 8;
-            tmp.color = color;
-            tmp.fontStyle = fontStyle;
-            tmp.alignment = TextAlignmentOptions.Left;
-            tmp.verticalAlignment = VerticalAlignmentOptions.Top;
-            tmp.enableAutoSizing = false;
-            tmp.overflowMode = TextOverflowModes.Ellipsis;
-
-            var layoutElement = textObj.AddComponent<LayoutElement>();
-            layoutElement.preferredHeight = preferredHeight;
-            layoutElement.minHeight = preferredHeight;
-            layoutElement.flexibleWidth = 1f;
         }
 
         private GameObject CreateCoverImage(Transform parent, OsuSearchResult result)
@@ -354,43 +432,102 @@ namespace OsuTools.UI
             return coverObj;
         }
 
-        private GameObject CreateDownloadButton(Transform parent, OsuSearchResult result)
+        private GameObject CreateInfoText(Transform parent, OsuSearchResult result)
         {
-            var buttonObj = new GameObject("DownloadButton");
-            buttonObj.transform.SetParent(parent, worldPositionStays: false);
+            var infoObj = new GameObject("InfoText");
+            infoObj.transform.SetParent(parent, worldPositionStays: false);
 
-            var rect = buttonObj.AddComponent<RectTransform>();
+            var rect = infoObj.AddComponent<RectTransform>();
             rect.anchorMin = new Vector2(0, 1);
             rect.anchorMax = new Vector2(1, 1);
             rect.pivot = new Vector2(0.5f, 1);
             rect.anchoredPosition = Vector2.zero;
-            rect.sizeDelta = new Vector2(0, 32);
+            rect.sizeDelta = Vector2.zero;
 
-            var button = buttonObj.AddComponent<Button>();
+            // Vertical layout for text lines
+            var vLayout = infoObj.AddComponent<VerticalLayoutGroup>();
+            vLayout.padding = new RectOffset(0, 0, 0, 0);
+            vLayout.spacing = 2f;
+            vLayout.childAlignment = TextAnchor.UpperLeft;
+            vLayout.childControlWidth = true;
+            vLayout.childControlHeight = true;
+            vLayout.childForceExpandWidth = true;
+            vLayout.childForceExpandHeight = false;
 
-            // Button background
-            var bgImage = buttonObj.AddComponent<Image>();
-            bgImage.color = new Color(0.2f, 0.6f, 1f);
-            button.targetGraphic = bgImage;
+            // Create text elements
+            var titleText = string.IsNullOrWhiteSpace(result.title_unicode) ? result.title : result.title_unicode;
+            var artistText = string.IsNullOrWhiteSpace(result.artist_unicode) ? result.artist : result.artist_unicode;
+            CreateTextElement(infoObj.transform, titleText, 15, FontStyles.Bold, Color.white);
+            CreateTextElement(infoObj.transform, artistText, 13, FontStyles.Normal, new Color(0.75f, 0.75f, 0.75f));
+            CreateTextElement(infoObj.transform, $"Mapped by {result.creator}", 11, FontStyles.Normal, new Color(0.5f, 0.5f, 0.5f));
+            CreateTextElement(infoObj.transform, $"BPM: {result.bpm:F1}", 11, FontStyles.Normal, new Color(0.5f, 0.8f, 1f));
 
-            // Button text
+            return infoObj;
+        }
+
+        private void CreateTextElement(Transform parent, string text, int fontSize, FontStyles fontStyle, Color color)
+        {
             var textObj = new GameObject("Text");
-            textObj.transform.SetParent(buttonObj.transform, worldPositionStays: false);
+            textObj.transform.SetParent(parent, worldPositionStays: false);
 
-            var textRect = textObj.AddComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.sizeDelta = Vector2.zero;
+            var rect = textObj.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0, 1);
+            rect.anchorMax = new Vector2(1, 1);
+            rect.pivot = new Vector2(0.5f, 1);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(0, fontSize + 4f);
 
             var tmp = textObj.AddComponent<TextMeshProUGUI>();
-            tmp.text = "Download";
-            tmp.fontSize = 13;
-            tmp.fontSizeMax = 13;
-            tmp.color = Color.white;
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.verticalAlignment = VerticalAlignmentOptions.Middle;
+            tmp.text = text;
+            tmp.fontSize = fontSize;
+            tmp.fontSizeMax = fontSize;
+            tmp.color = color;
+            tmp.fontStyle = fontStyle;
+            ApplyFont(tmp);
+            tmp.alignment = TextAlignmentOptions.Left;
+            tmp.verticalAlignment = VerticalAlignmentOptions.Top;
+            tmp.enableAutoSizing = false;
+            tmp.overflowMode = TextOverflowModes.Ellipsis;
 
-            // Button click handler
+            var layoutElement = textObj.AddComponent<LayoutElement>();
+            layoutElement.preferredHeight = fontSize + 4f;
+            layoutElement.minHeight = fontSize + 4f;
+            layoutElement.flexibleWidth = 1f;
+        }
+
+        private GameObject CreateDownloadButton(Transform parent, OsuSearchResult result)
+        {
+            // Instantiate from prefab
+            if (downloadButtonPrefab == null)
+            {
+                Debug.LogError("[OsuSearchUI] Download button prefab is not assigned!");
+                return null;
+            }
+
+            var buttonObj = Instantiate(downloadButtonPrefab, parent);
+            buttonObj.name = $"DownloadButton_{result.id}";
+
+            var buttonRect = buttonObj.GetComponent<RectTransform>();
+            if (buttonRect != null)
+            {
+                buttonRect.anchorMin = new Vector2(0, 1);
+                buttonRect.anchorMax = new Vector2(1, 1);
+                buttonRect.pivot = new Vector2(0.5f, 1);
+                buttonRect.anchoredPosition = Vector2.zero;
+                buttonRect.sizeDelta = new Vector2(0, 32f);
+            }
+
+            var button = buttonObj.GetComponent<Button>();
+            if (button == null)
+            {
+                Debug.LogError("[OsuSearchUI] Download button prefab missing Button component!");
+                return buttonObj;
+            }
+
+            ApplyFontToChildren(buttonObj);
+
+            // Clear existing listeners and add new click handler
+            button.onClick = new Button.ButtonClickedEvent();
             button.onClick.AddListener(() =>
             {
                 Debug.Log($"[OsuSearchUI] Download button clicked: {result.title} (ID: {result.id})");
@@ -442,6 +579,27 @@ namespace OsuTools.UI
                 }
             }
             currentCards.Clear();
+        }
+
+        private void ApplyFont(TextMeshProUGUI text)
+        {
+            if (text != null && resultsFont != null)
+            {
+                text.font = resultsFont;
+            }
+        }
+
+        private void ApplyFontToChildren(GameObject root)
+        {
+            if (root == null || resultsFont == null)
+            {
+                return;
+            }
+
+            foreach (var tmp in root.GetComponentsInChildren<TextMeshProUGUI>(true))
+            {
+                tmp.font = resultsFont;
+            }
         }
 
         private void SetStatus(string message)
