@@ -1,11 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using OsuTools.Api;
+using TMPro;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
-using TMPro;
-using OsuTools.Api;
 
 namespace OsuTools.UI
 {
@@ -122,9 +122,8 @@ namespace OsuTools.UI
 
             if (resultsFont == null)
             {
-                resultsFont = statusText?.font
-                              ?? pageInfoText?.font
-                              ?? searchInputField?.textComponent?.font;
+                resultsFont =
+                    statusText?.font ?? pageInfoText?.font ?? searchInputField?.textComponent?.font;
             }
 
             UpdatePaginationUI();
@@ -178,7 +177,11 @@ namespace OsuTools.UI
             }
 
             Debug.Log($"[OsuSearchUI] Searching for: {currentQuery} (page {currentPage})");
-            searchManager.SearchBeatmaps(currentQuery, amount: resultsPerPage, offset: currentPage * resultsPerPage);
+            searchManager.SearchBeatmaps(
+                currentQuery,
+                amount: resultsPerPage,
+                offset: currentPage * resultsPerPage
+            );
         }
 
         private void OnPreviousButtonClicked()
@@ -193,7 +196,10 @@ namespace OsuTools.UI
         private void OnNextButtonClicked()
         {
             // Check if there are more results
-            if ((currentPage + 1) * resultsPerPage < totalResults || currentResults?.Length == resultsPerPage)
+            if (
+                (currentPage + 1) * resultsPerPage < totalResults
+                || currentResults?.Length == resultsPerPage
+            )
             {
                 currentPage++;
                 LoadCurrentPage();
@@ -216,12 +222,18 @@ namespace OsuTools.UI
             }
 
             Debug.Log($"[OsuSearchUI] Loading page {currentPage} for: {currentQuery}");
-            searchManager.SearchBeatmaps(currentQuery, amount: resultsPerPage, offset: currentPage * resultsPerPage);
+            searchManager.SearchBeatmaps(
+                currentQuery,
+                amount: resultsPerPage,
+                offset: currentPage * resultsPerPage
+            );
         }
 
         private void HandleSearchComplete(OsuSearchResult[] results)
         {
-            Debug.Log($"[OsuSearchUI] Search complete! Found {results?.Length ?? 0} results on page {currentPage}");
+            Debug.Log(
+                $"[OsuSearchUI] Search complete! Found {results?.Length ?? 0} results on page {currentPage}"
+            );
 
             if (searchButton != null)
             {
@@ -275,7 +287,8 @@ namespace OsuTools.UI
             if (nextButton != null)
             {
                 // Enable next button if we got a full page of results
-                bool hasNextPage = currentResults != null && currentResults.Length == resultsPerPage;
+                bool hasNextPage =
+                    currentResults != null && currentResults.Length == resultsPerPage;
                 nextButton.interactable = hasNextPage;
             }
 
@@ -296,13 +309,17 @@ namespace OsuTools.UI
                 var card = CreateResultCard(result, resultsContainer);
                 currentCards.Add(card);
                 // Force layout rebuild after each card
-                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(card.GetComponent<RectTransform>());
+                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(
+                    card.GetComponent<RectTransform>()
+                );
             }
 
             // Force final layout rebuild
             if (resultsContainer != null)
             {
-                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(resultsContainer as RectTransform);
+                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(
+                    resultsContainer as RectTransform
+                );
             }
 
             Debug.Log($"[OsuSearchUI] Created {currentCards.Count} cards");
@@ -403,7 +420,9 @@ namespace OsuTools.UI
             var buttonObj = CreateDownloadButton(rightContainerObj.transform, result);
             if (buttonObj != null)
             {
-                var buttonLayout = buttonObj.GetComponent<LayoutElement>() ?? buttonObj.AddComponent<LayoutElement>();
+                var buttonLayout =
+                    buttonObj.GetComponent<LayoutElement>()
+                    ?? buttonObj.AddComponent<LayoutElement>();
                 buttonLayout.preferredHeight = 32f;
                 buttonLayout.minHeight = 32f;
             }
@@ -455,17 +474,45 @@ namespace OsuTools.UI
             vLayout.childForceExpandHeight = false;
 
             // Create text elements
-            var titleText = string.IsNullOrWhiteSpace(result.title_unicode) ? result.title : result.title_unicode;
-            var artistText = string.IsNullOrWhiteSpace(result.artist_unicode) ? result.artist : result.artist_unicode;
+            var titleText = string.IsNullOrWhiteSpace(result.title_unicode)
+                ? result.title
+                : result.title_unicode;
+            var artistText = string.IsNullOrWhiteSpace(result.artist_unicode)
+                ? result.artist
+                : result.artist_unicode;
             CreateTextElement(infoObj.transform, titleText, 15, FontStyles.Bold, Color.white);
-            CreateTextElement(infoObj.transform, artistText, 13, FontStyles.Normal, new Color(0.75f, 0.75f, 0.75f));
-            CreateTextElement(infoObj.transform, $"Mapped by {result.creator}", 11, FontStyles.Normal, new Color(0.5f, 0.5f, 0.5f));
-            CreateTextElement(infoObj.transform, $"BPM: {result.bpm:F1}", 11, FontStyles.Normal, new Color(0.5f, 0.8f, 1f));
+            CreateTextElement(
+                infoObj.transform,
+                artistText,
+                13,
+                FontStyles.Normal,
+                new Color(0.75f, 0.75f, 0.75f)
+            );
+            CreateTextElement(
+                infoObj.transform,
+                $"Mapped by {result.creator}",
+                11,
+                FontStyles.Normal,
+                new Color(0.5f, 0.5f, 0.5f)
+            );
+            CreateTextElement(
+                infoObj.transform,
+                $"BPM: {result.bpm:F1}",
+                11,
+                FontStyles.Normal,
+                new Color(0.5f, 0.8f, 1f)
+            );
 
             return infoObj;
         }
 
-        private void CreateTextElement(Transform parent, string text, int fontSize, FontStyles fontStyle, Color color)
+        private void CreateTextElement(
+            Transform parent,
+            string text,
+            int fontSize,
+            FontStyles fontStyle,
+            Color color
+        )
         {
             var textObj = new GameObject("Text");
             textObj.transform.SetParent(parent, worldPositionStays: false);
@@ -530,7 +577,9 @@ namespace OsuTools.UI
             button.onClick = new Button.ButtonClickedEvent();
             button.onClick.AddListener(() =>
             {
-                Debug.Log($"[OsuSearchUI] Download button clicked: {result.title} (ID: {result.id})");
+                Debug.Log(
+                    $"[OsuSearchUI] Download button clicked: {result.title} (ID: {result.id})"
+                );
                 SetStatus($"Downloading {result.title}...");
 
                 if (searchManager != null)
@@ -549,22 +598,47 @@ namespace OsuTools.UI
 
         private IEnumerator LoadCoverImage(RawImage targetImage, string url)
         {
+            if (targetImage == null || string.IsNullOrEmpty(url))
+            {
+                yield break;
+            }
+
+            yield return TryLoadCoverImage(targetImage, url);
+
+            if (targetImage != null && targetImage.texture == null && url.Contains("?"))
+            {
+                var noQuery = url.Split('?')[0];
+                if (!string.IsNullOrEmpty(noQuery))
+                {
+                    yield return TryLoadCoverImage(targetImage, noQuery);
+                }
+            }
+        }
+
+        private IEnumerator TryLoadCoverImage(RawImage targetImage, string url)
+        {
             using (var webRequest = UnityWebRequestTexture.GetTexture(url))
             {
+                webRequest.SetRequestHeader("User-Agent", "Mozilla/5.0 (Unity)");
+                webRequest.SetRequestHeader("Accept", "image/*");
+                webRequest.timeout = 15;
+
                 yield return webRequest.SendWebRequest();
 
                 if (webRequest.result == UnityWebRequest.Result.Success && targetImage != null)
                 {
                     var texture = DownloadHandlerTexture.GetContent(webRequest);
                     targetImage.texture = texture;
+                    yield break;
                 }
-                else
+
+                var code = webRequest.responseCode;
+                Debug.LogWarning(
+                    $"Failed to load cover image: {url} (HTTP {code}) {webRequest.error}"
+                );
+                if (targetImage != null)
                 {
-                    Debug.LogWarning($"Failed to load cover image: {url}");
-                    if (targetImage != null)
-                    {
-                        targetImage.color = new Color(0.3f, 0.3f, 0.3f);
-                    }
+                    targetImage.color = new Color(0.3f, 0.3f, 0.3f);
                 }
             }
         }

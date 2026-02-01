@@ -45,6 +45,12 @@ namespace OsuTools.UI
         private TextMeshProUGUI playPauseLabel;
 
         [SerializeField]
+        private Button jumpStartButton;
+
+        [SerializeField]
+        private Button jumpEndButton;
+
+        [SerializeField]
         private TextMeshProUGUI currentTimeText;
 
         [SerializeField]
@@ -85,6 +91,8 @@ namespace OsuTools.UI
         private int totalMs;
         private bool editorActive;
         private bool uiBuilt;
+        private bool hasIntervalsFromFile;
+        private const float RestartThresholdSeconds = 0.15f;
 
         private void Awake()
         {
@@ -215,6 +223,12 @@ namespace OsuTools.UI
                 playPauseLabel = playPauseButton.GetComponentInChildren<TextMeshProUGUI>();
                 playPauseButton.onClick.AddListener(TogglePlayPause);
 
+                jumpStartButton = CreateButton(editorPanel.transform, "JumpStart", "Start");
+                jumpStartButton.onClick.AddListener(JumpToStart);
+
+                jumpEndButton = CreateButton(editorPanel.transform, "JumpEnd", "End");
+                jumpEndButton.onClick.AddListener(JumpToEnd);
+
                 currentTimeText = CreateLabel(editorPanel.transform, "0:00.000");
                 startTimeText = CreateLabel(editorPanel.transform, "Start: 0:00.000");
                 endTimeText = CreateLabel(editorPanel.transform, "End: 0:00.000");
@@ -226,11 +240,25 @@ namespace OsuTools.UI
                 playRect.anchoredPosition = new Vector2(0f, 0f);
                 playRect.sizeDelta = new Vector2(70f, 28f);
 
+                var jumpStartRect = jumpStartButton.GetComponent<RectTransform>();
+                jumpStartRect.anchorMin = new Vector2(0f, 1f);
+                jumpStartRect.anchorMax = new Vector2(0f, 1f);
+                jumpStartRect.pivot = new Vector2(0f, 1f);
+                jumpStartRect.anchoredPosition = new Vector2(78f, 0f);
+                jumpStartRect.sizeDelta = new Vector2(60f, 28f);
+
+                var jumpEndRect = jumpEndButton.GetComponent<RectTransform>();
+                jumpEndRect.anchorMin = new Vector2(0f, 1f);
+                jumpEndRect.anchorMax = new Vector2(0f, 1f);
+                jumpEndRect.pivot = new Vector2(0f, 1f);
+                jumpEndRect.anchoredPosition = new Vector2(144f, 0f);
+                jumpEndRect.sizeDelta = new Vector2(60f, 28f);
+
                 var timeRect = currentTimeText.GetComponent<RectTransform>();
                 timeRect.anchorMin = new Vector2(0f, 1f);
                 timeRect.anchorMax = new Vector2(0f, 1f);
                 timeRect.pivot = new Vector2(0f, 1f);
-                timeRect.anchoredPosition = new Vector2(80f, -2f);
+                timeRect.anchoredPosition = new Vector2(212f, -2f);
                 timeRect.sizeDelta = new Vector2(160f, 24f);
 
                 var startRect = startTimeText.GetComponent<RectTransform>();
@@ -401,12 +429,15 @@ namespace OsuTools.UI
 
         private void HandleAnalysisComplete(OsuAnalyzer.AnalysisResult result)
         {
+            ResetForNewTrack();
             currentResult = result;
             intervals.Clear();
             if (result != null && result.KiaiIntervals != null)
             {
                 intervals.AddRange(result.KiaiIntervals);
             }
+
+            hasIntervalsFromFile = intervals.Count > 0;
 
             totalMs = result?.LastHitObjectTimeMs ?? 0;
             if (audioSource != null && audioSource.clip != null)
@@ -429,9 +460,10 @@ namespace OsuTools.UI
 
             if (intervals.Count == 0)
             {
+                startMs = 0;
+                endMs = totalMs > 0 ? totalMs : 0;
                 SetSelectionActive(false);
-                SetEditorActive(false);
-                SetHandlesVisible(false);
+                SetEditorActive(true);
                 return;
             }
 
@@ -465,6 +497,33 @@ namespace OsuTools.UI
 
             audioSource.clip = clip;
             totalMs = Mathf.Max(totalMs, (int)(clip.length * 1000f));
+            if (!hasIntervalsFromFile && endMs <= 0)
+            {
+                startMs = 0;
+                endMs = totalMs;
+            }
+            UpdateTimeLabels();
+            UpdateHandlesFromTimes();
+        }
+
+        private void ResetForNewTrack()
+        {
+            selectedIndex = 0;
+            hasIntervalsFromFile = false;
+            startMs = 0;
+            endMs = 0;
+            totalMs = 0;
+
+            if (audioSource != null)
+            {
+                audioSource.Stop();
+                audioSource.time = 0f;
+                audioSource.clip = null;
+            }
+
+            SetSelectionActive(false);
+            SetEditorActive(false);
+            UpdatePlayPauseLabel();
             UpdateTimeLabels();
         }
 
@@ -616,7 +675,7 @@ namespace OsuTools.UI
             {
                 var startSeconds = startMs / 1000f;
                 var endSeconds = endMs / 1000f;
-                if (audioSource.time < startSeconds || audioSource.time > endSeconds)
+                if (audioSource.time < startSeconds || audioSource.time >= endSeconds - RestartThresholdSeconds)
                 {
                     audioSource.time = startSeconds;
                 }
@@ -647,6 +706,30 @@ namespace OsuTools.UI
             {
                 endTimeText.text = $"End: {OsuAnalyzer.MsToTimeString(endMs)}";
             }
+        }
+
+        private void JumpToStart()
+        {
+            if (audioSource == null || audioSource.clip == null)
+            {
+                return;
+            }
+
+            audioSource.time = startMs / 1000f;
+            UpdateHandlesFromTimes();
+            UpdateTimeLabels();
+        }
+
+        private void JumpToEnd()
+        {
+            if (audioSource == null || audioSource.clip == null)
+            {
+                return;
+            }
+
+            audioSource.time = endMs / 1000f;
+            UpdateHandlesFromTimes();
+            UpdateTimeLabels();
         }
 
         private void UpdateCurrentTimeText(int currentMs)
