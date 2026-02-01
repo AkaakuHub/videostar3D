@@ -26,27 +26,34 @@ namespace OsuTools
             }
 
             // Create a temporary file for the .osz data
-            var tempOszPath = Path.Combine(outputDir, "temp.osz");
-            File.WriteAllBytes(tempOszPath, oszData);
-
-            // Extract using ZipArchive (works on all platforms)
+            var tempOszPath = Path.Combine(outputDir, $"temp_{Guid.NewGuid():N}.osz");
             var extractedFiles = new System.Collections.Generic.List<string>();
 
-            using (var archive = ZipFile.OpenRead(tempOszPath))
+            try
             {
-                foreach (var entry in archive.Entries)
+                File.WriteAllBytes(tempOszPath, oszData);
+
+                // Extract using ZipArchive (works on all platforms)
+                using (var archive = ZipFile.OpenRead(tempOszPath))
                 {
-                    if (entry.FullName.EndsWith(".osu", StringComparison.OrdinalIgnoreCase))
+                    foreach (var entry in archive.Entries)
                     {
-                        var destinationPath = Path.Combine(outputDir, Path.GetFileName(entry.FullName));
-                        entry.ExtractToFile(destinationPath, overwrite: true);
-                        extractedFiles.Add(destinationPath);
+                        if (entry.FullName.EndsWith(".osu", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var destinationPath = Path.Combine(outputDir, Path.GetFileName(entry.FullName));
+                            entry.ExtractToFile(destinationPath, overwrite: true);
+                            extractedFiles.Add(destinationPath);
+                        }
                     }
                 }
             }
-
-            // Clean up temporary .osz file
-            File.Delete(tempOszPath);
+            finally
+            {
+                if (File.Exists(tempOszPath))
+                {
+                    File.Delete(tempOszPath);
+                }
+            }
 
             return extractedFiles.ToArray();
         }
@@ -66,34 +73,45 @@ namespace OsuTools
                 Directory.CreateDirectory(outputDir);
             }
 
-            var tempOszPath = Path.Combine(outputDir, "temp.osz");
-            File.WriteAllBytes(tempOszPath, oszData);
+            var tempOszPath = Path.Combine(outputDir, $"temp_{Guid.NewGuid():N}.osz");
+            string foundPath = null;
 
-            using (var archive = ZipFile.OpenRead(tempOszPath))
+            try
             {
-                foreach (var entry in archive.Entries)
+                File.WriteAllBytes(tempOszPath, oszData);
+
+                using (var archive = ZipFile.OpenRead(tempOszPath))
                 {
-                    if (entry.FullName.EndsWith(".osu", StringComparison.OrdinalIgnoreCase))
+                    foreach (var entry in archive.Entries)
                     {
-                        // Check if this file contains the difficulty version
-                        using (var stream = entry.Open())
-                        using (var reader = new StreamReader(stream))
+                        if (entry.FullName.EndsWith(".osu", StringComparison.OrdinalIgnoreCase))
                         {
-                            var content = reader.ReadToEnd();
-                            if (content.Contains($"Version:{difficultyVersion}"))
+                            // Check if this file contains the difficulty version
+                            using (var stream = entry.Open())
+                            using (var reader = new StreamReader(stream))
                             {
-                                var destinationPath = Path.Combine(outputDir, Path.GetFileName(entry.FullName));
-                                entry.ExtractToFile(destinationPath, overwrite: true);
-                                File.Delete(tempOszPath);
-                                return destinationPath;
+                                var content = reader.ReadToEnd();
+                                if (content.Contains($"Version:{difficultyVersion}"))
+                                {
+                                    var destinationPath = Path.Combine(outputDir, Path.GetFileName(entry.FullName));
+                                    entry.ExtractToFile(destinationPath, overwrite: true);
+                                    foundPath = destinationPath;
+                                    break;
+                                }
                             }
                         }
                     }
                 }
             }
+            finally
+            {
+                if (File.Exists(tempOszPath))
+                {
+                    File.Delete(tempOszPath);
+                }
+            }
 
-            File.Delete(tempOszPath);
-            return null;
+            return foundPath;
         }
 
         /// <summary>
@@ -104,23 +122,31 @@ namespace OsuTools
         /// <returns>Array of .osu entry names</returns>
         public static string[] ListOsuFiles(byte[] oszData)
         {
-            var tempPath = Path.Combine(Application.temporaryCachePath, "temp_list.osz");
-            File.WriteAllBytes(tempPath, oszData);
-
             var osuFiles = new System.Collections.Generic.List<string>();
+            var tempPath = Path.Combine(Application.temporaryCachePath, $"temp_{Guid.NewGuid():N}.osz");
 
-            using (var archive = ZipFile.OpenRead(tempPath))
+            try
             {
-                foreach (var entry in archive.Entries)
+                File.WriteAllBytes(tempPath, oszData);
+
+                using (var archive = ZipFile.OpenRead(tempPath))
                 {
-                    if (entry.FullName.EndsWith(".osu", StringComparison.OrdinalIgnoreCase))
+                    foreach (var entry in archive.Entries)
                     {
-                        osuFiles.Add(entry.FullName);
+                        if (entry.FullName.EndsWith(".osu", StringComparison.OrdinalIgnoreCase))
+                        {
+                            osuFiles.Add(entry.FullName);
+                        }
                     }
                 }
             }
-
-            File.Delete(tempPath);
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
             return osuFiles.ToArray();
         }
 
@@ -132,31 +158,94 @@ namespace OsuTools
         /// <returns>The .osu file content as text, or null if not found</returns>
         public static string ExtractOsuFileContent(byte[] oszData, string difficultyVersion)
         {
-            var tempPath = Path.Combine(Application.temporaryCachePath, "temp_content.osz");
-            File.WriteAllBytes(tempPath, oszData);
+            var tempPath = Path.Combine(Application.temporaryCachePath, $"temp_{Guid.NewGuid():N}.osz");
+            string contentResult = null;
 
-            using (var archive = ZipFile.OpenRead(tempPath))
+            try
             {
-                foreach (var entry in archive.Entries)
+                File.WriteAllBytes(tempPath, oszData);
+
+                using (var archive = ZipFile.OpenRead(tempPath))
                 {
-                    if (entry.FullName.EndsWith(".osu", StringComparison.OrdinalIgnoreCase))
+                    foreach (var entry in archive.Entries)
                     {
-                        using (var stream = entry.Open())
-                        using (var reader = new StreamReader(stream))
+                        if (entry.FullName.EndsWith(".osu", StringComparison.OrdinalIgnoreCase))
                         {
-                            var content = reader.ReadToEnd();
-                            if (content.Contains($"Version:{difficultyVersion}"))
+                            using (var stream = entry.Open())
+                            using (var reader = new StreamReader(stream))
                             {
-                                File.Delete(tempPath);
-                                return content;
+                                var content = reader.ReadToEnd();
+                                if (content.Contains($"Version:{difficultyVersion}"))
+                                {
+                                    contentResult = content;
+                                    break;
+                                }
                             }
                         }
                     }
                 }
             }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
 
-            File.Delete(tempPath);
-            return null;
+            return contentResult;
+        }
+
+        /// <summary>
+        /// Extract a specific file from an .osz archive by file name (ignores directory).
+        /// </summary>
+        /// <param name="oszData">The .osz file data (byte array)</param>
+        /// <param name="fileName">File name to extract (e.g., audio.mp3)</param>
+        /// <param name="outputDir">Directory to extract files to</param>
+        /// <returns>Path to the extracted file, or null if not found</returns>
+        public static string ExtractFileByName(byte[] oszData, string fileName, string outputDir)
+        {
+            if (string.IsNullOrEmpty(fileName))
+            {
+                return null;
+            }
+
+            if (!Directory.Exists(outputDir))
+            {
+                Directory.CreateDirectory(outputDir);
+            }
+
+            var tempOszPath = Path.Combine(outputDir, $"temp_{Guid.NewGuid():N}.osz");
+            string extractedPath = null;
+
+            try
+            {
+                File.WriteAllBytes(tempOszPath, oszData);
+
+                using (var archive = ZipFile.OpenRead(tempOszPath))
+                {
+                    foreach (var entry in archive.Entries)
+                    {
+                        var entryName = Path.GetFileName(entry.FullName);
+                        if (string.Equals(entryName, fileName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            var destinationPath = Path.Combine(outputDir, entryName);
+                            entry.ExtractToFile(destinationPath, overwrite: true);
+                            extractedPath = destinationPath;
+                            break;
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                if (File.Exists(tempOszPath))
+                {
+                    File.Delete(tempOszPath);
+                }
+            }
+
+            return extractedPath;
         }
 
         /// <summary>

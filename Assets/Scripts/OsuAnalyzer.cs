@@ -70,6 +70,25 @@ namespace OsuTools
             };
         }
 
+        public static string GetAudioFilename(string osuText)
+        {
+            if (osuText == null)
+            {
+                return null;
+            }
+
+            var lines = ExtractSectionLines(osuText, "General");
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("AudioFilename:", StringComparison.OrdinalIgnoreCase))
+                {
+                    return line.Substring("AudioFilename:".Length).Trim();
+                }
+            }
+
+            return null;
+        }
+
         public static AnalysisResult AnalyzeFromFile(string filePath, int mergeThresholdMs = 500)
         {
             if (string.IsNullOrEmpty(filePath))

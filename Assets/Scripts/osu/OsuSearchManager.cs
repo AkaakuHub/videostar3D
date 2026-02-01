@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using OsuTools.Api;
 using UnityEngine;
+using UnityEngine.Networking;
 using Path = System.IO.Path;
 
 namespace OsuTools
@@ -17,6 +18,11 @@ namespace OsuTools
         public Action<float> OnDownloadProgress;
         public Action<OsuAnalyzer.AnalysisResult> OnAnalysisComplete;
         public Action<string> OnAnalysisError;
+        public Action<AudioClip> OnAudioClipReady;
+        public Action<string> OnAudioClipError;
+
+        public AudioClip CurrentAudioClip { get; private set; }
+        public string CurrentAudioPath { get; private set; }
 
         /// <summary>
         /// Search for beatmaps with the given query.
@@ -122,9 +128,34 @@ namespace OsuTools
             Debug.Log($"[OsuSearchManager] Analyzing {osuFilePath}...");
 
             // Analyze the .osu file
-            var result = OsuAnalyzer.AnalyzeFromFile(osuFilePath);
+            var osuText = System.IO.File.ReadAllText(osuFilePath);
+            var result = OsuAnalyzer.AnalyzeFromText(osuText);
             Debug.Log($"[OsuSearchManager] Analysis complete! BPM sections: {result.BpmSections.Count}, Kiai intervals: {result.KiaiIntervals.Count}");
             OnAnalysisComplete?.Invoke(result);
+
+            // Extract and load audio clip
+            var audioFilename = OsuAnalyzer.GetAudioFilename(osuText);
+            if (!string.IsNullOrEmpty(audioFilename))
+            {
+                var audioPath = OsuFileExtractor.ExtractFileByName(oszData, audioFilename, outputDir);
+                if (!string.IsNullOrEmpty(audioPath))
+                {
+                    CurrentAudioPath = audioPath;
+                    yield return LoadAudioClip(audioPath);
+                }
+                else
+                {
+                    var msg = $"Audio file not found in .osz: {audioFilename}";
+                    Debug.LogWarning($"[OsuSearchManager] {msg}");
+                    OnAudioClipError?.Invoke(msg);
+                }
+            }
+            else
+            {
+                var msg = "Audio filename not found in .osu file.";
+                Debug.LogWarning($"[OsuSearchManager] {msg}");
+                OnAudioClipError?.Invoke(msg);
+            }
         }
 
         /// <summary>
@@ -191,6 +222,42 @@ namespace OsuTools
             // Analyze the content
             var result = OsuAnalyzer.AnalyzeFromText(osuContent);
             OnAnalysisComplete?.Invoke(result);
+        }
+
+        private IEnumerator LoadAudioClip(string audioPath)
+        {
+            var ext = Path.GetExtension(audioPath)?.ToLowerInvariant();
+            var audioType = AudioType.UNKNOWN;
+            switch (ext)
+            {
+                case ".mp3":
+                    audioType = AudioType.MPEG;
+                    break;
+                case ".ogg":
+                    audioType = AudioType.OGGVORBIS;
+                    break;
+                case ".wav":
+                    audioType = AudioType.WAV;
+                    break;
+            }
+
+            var url = "file://" + audioPath.Replace("\\", "/");
+            using (var request = UnityWebRequestMultimedia.GetAudioClip(url, audioType))
+            {
+                yield return request.SendWebRequest();
+
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    CurrentAudioClip = DownloadHandlerAudioClip.GetContent(request);
+                    OnAudioClipReady?.Invoke(CurrentAudioClip);
+                }
+                else
+                {
+                    var msg = $"Failed to load audio clip: {request.error}";
+                    Debug.LogError($"[OsuSearchManager] {msg}");
+                    OnAudioClipError?.Invoke(msg);
+                }
+            }
         }
     }
 }
